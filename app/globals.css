@@ -1,0 +1,105 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #161920;
+  --border: #202432;
+  --text: #e7e9f0;
+  --muted: #9aa2b5;
+  --accent: #7dd3fc;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at 20% 20%, #181c24, #0f1115);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+code {
+  background: #1f2633;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.app-shell {
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.subtitle {
+  color: var(--muted);
+}
+
+.pill {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.page {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.panel-header {
+  margin-bottom: 12px;
+}
+
+.note {
+  color: var(--muted);
+}
+
+.map-canvas {
+  width: 100%;
+  height: 520px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+@media (min-width: 960px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+}

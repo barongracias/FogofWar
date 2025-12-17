@@ -1,0 +1,28 @@
+{
+  "name": "g-maps-timeline",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "ingest": "node scripts/ingest-json.js"
+  },
+  "dependencies": {
+    "clarinet": "^0.12.6",
+    "h3-js": "^4.1.0",
+    "maplibre-gl": "^3.6.2",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tar-stream": "^3.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "typescript": "^5.4.5"
+  }
+}

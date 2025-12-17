@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js
+.next
+out
+.vercel
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor
+.DS_Store
+.idea
+*.swp
+
+# Data and generated artifacts
+data/
+dist/
+build/
