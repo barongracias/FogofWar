@@ -9,18 +9,29 @@
 const fs = require("fs/promises");
 const path = require("path");
 const h3 = require("h3-js");
+const polygonClipping = require("polygon-clipping");
 
 const INPUT_FILE = path.join(process.cwd(), "data", "uploads", "location-history.json");
 const DATASET_ID = "location-history";
 const TILES_ROOT = path.join(process.cwd(), "data", "tiles", DATASET_ID);
 const META_DIR = path.join(process.cwd(), "data", "meta");
+const ROUTES_DIR = path.join(process.cwd(), "data", "routes", DATASET_ID);
 const RESOLUTION = 13; // ~6–9 m edges
 const TILE_MIN_Z = 4;
 const TILE_MAX_Z = 14;
 
+const REGION_BOUNDS = {
+  Switzerland: { minLat: 45, maxLat: 48, minLon: 5, maxLon: 11 },
+  Portugal: { minLat: 36, maxLat: 42, minLon: -10, maxLon: -5 },
+  Spain: { minLat: 35, maxLat: 44, minLon: -10, maxLon: 5 },
+  India: { minLat: 8, maxLat: 37, minLon: 68, maxLon: 98 },
+  UK: { minLat: 49, maxLat: 61, minLon: -11, maxLon: 2 }
+};
+
 async function main() {
   await fs.mkdir(TILES_ROOT, { recursive: true });
   await fs.mkdir(META_DIR, { recursive: true });
+  await fs.mkdir(ROUTES_DIR, { recursive: true });
 
   let raw;
   try {
@@ -46,6 +57,8 @@ async function main() {
   // Map bucket -> Map(cellId -> weight)
   const bucketMaps = new Map();
   const bucketStats = new Map();
+  const bucketRoutes = new Map(); // bucket -> [{lat,lon,time}]
+  const globalRegions = {};
 
   const ensureBucket = (bucket) => {
     if (!bucketMaps.has(bucket)) {
@@ -59,12 +72,15 @@ async function main() {
           maxLat: -Infinity,
           minLon: Infinity,
           maxLon: -Infinity
-        }
+        },
+        routePoints: 0
       });
+      bucketRoutes.set(bucket, []);
     }
     return {
       map: bucketMaps.get(bucket),
-      stats: bucketStats.get(bucket)
+      stats: bucketStats.get(bucket),
+      route: bucketRoutes.get(bucket)
     };
   };
 
@@ -77,6 +93,7 @@ async function main() {
     const visit = entry?.visit;
     const top = visit?.topCandidate;
     const place = top?.placeLocation || visit?.placeLocation;
+    const timestamp = parseTimestamp(entry?.startTime || entry?.endTime);
     const bucketYear = parseYear(entry?.startTime || entry?.endTime);
     const probVisit = parseProbability(top?.probability ?? visit?.probability);
 
@@ -98,9 +115,14 @@ async function main() {
 
     for (const { coords, weight } of coordsList) {
       const cell = h3.latLngToCell(coords.lat, coords.lon, RESOLUTION);
+      // tally region
+      const region = resolveRegion(coords.lat, coords.lon);
+      if (region) {
+        globalRegions[region] = (globalRegions[region] || 0) + 1;
+      }
 
       for (const bucket of ["total", bucketYear].filter(Boolean)) {
-        const { map, stats } = ensureBucket(bucket);
+        const { map, stats, route } = ensureBucket(bucket);
         const current = map.get(cell) ?? 0;
         map.set(cell, current + weight);
         stats.usedPoints += 1;
@@ -110,6 +132,9 @@ async function main() {
         stats.bounds.minLon = Math.min(stats.bounds.minLon, coords.lon);
         stats.bounds.maxLon = Math.max(stats.bounds.maxLon, coords.lon);
         stats.seenPoints += 1;
+        if (timestamp !== null) {
+          route.push({ lat: coords.lat, lon: coords.lon, t: timestamp });
+        }
       }
       globalUsed += 1;
       globalSeen += 1;
@@ -141,6 +166,21 @@ async function main() {
 
     // Generate tiled JSON
     tileCounts[bucket] = await buildTilesForBucket(bucket, cells);
+
+    // Build route
+    const routePoints = bucketRoutes.get(bucket) || [];
+    const sorted = routePoints
+      .filter((p) => p.t !== null)
+      .sort((a, b) => a.t - b.t)
+      .map((p) => ({ lat: p.lat, lon: p.lon }));
+    const simplified = simplifyRoute(sorted, 10); // meters threshold
+    stats.routePoints = simplified.length;
+    const routeDir = path.join(ROUTES_DIR, bucket);
+    await fs.mkdir(routeDir, { recursive: true });
+    await fs.writeFile(
+      path.join(routeDir, "route.json"),
+      JSON.stringify({ coords: simplified.map((p) => [p.lon, p.lat]) })
+    );
   }
 
   const metaBuckets = {};
@@ -161,6 +201,9 @@ async function main() {
     global: {
       seenPoints: globalSeen,
       usedPoints: globalUsed
+    },
+    globalCounts: {
+      ...globalRegions
     },
     tileZooms: { min: TILE_MIN_Z, max: TILE_MAX_Z },
     tileTemplate: `/api/tiles/${DATASET_ID}/{bucket}/{z}/{x}/{y}`
@@ -225,29 +268,105 @@ function normalizeWeight(prob) {
   return 1;
 }
 
+function parseTimestamp(value) {
+  if (!value || typeof value !== "string") return null;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : t;
+}
+
+function resolveRegion(lat, lon) {
+  for (const [name, bounds] of Object.entries(REGION_BOUNDS)) {
+    if (
+      lat >= bounds.minLat &&
+      lat <= bounds.maxLat &&
+      lon >= bounds.minLon &&
+      lon <= bounds.maxLon
+    ) {
+      return name;
+    }
+  }
+  return null;
+}
+
 async function buildTilesForBucket(bucket, cells) {
   const tilesDir = path.join(TILES_ROOT, bucket, "tiles");
   await fs.mkdir(tilesDir, { recursive: true });
-  const tileMap = new Map(); // key -> array of cells
+  const tileMap = new Map(); // key -> { cells: [...], polygons: [...] }
 
   for (const cell of cells) {
     const [lat, lon] = h3.cellToLatLng(cell.id);
     for (let z = TILE_MIN_Z; z <= TILE_MAX_Z; z++) {
       const { x, y } = lngLatToTile(lon, lat, z);
       const key = `${z}/${x}/${y}`;
-      if (!tileMap.has(key)) tileMap.set(key, []);
-      tileMap.get(key).push(cell);
+      if (!tileMap.has(key)) tileMap.set(key, { cells: [], polygons: [] });
+      const entry = tileMap.get(key);
+      entry.cells.push(cell);
+      entry.polygons.push(h3CellPolygon(cell.id));
     }
   }
 
-  for (const [key, list] of tileMap.entries()) {
+  for (const [key, entry] of tileMap.entries()) {
     const [z, x, y] = key.split("/");
     const dir = path.join(tilesDir, z, x);
     await fs.mkdir(dir, { recursive: true });
-    const payload = { cells: list };
+    const outlines = unionOutlines(entry.polygons);
+    const payload = { cells: entry.cells, outlines };
     await fs.writeFile(path.join(dir, `${y}.json`), JSON.stringify(payload));
   }
   return tileMap.size;
+}
+
+function h3CellPolygon(cellId) {
+  const boundary = h3.cellToBoundary(cellId, true);
+  const ring = boundary.map(([lat, lon]) => [lon, lat]);
+  if (ring.length) {
+    const [flon, flat] = ring[0];
+    const [llon, llat] = ring[ring.length - 1];
+    if (flon !== llon || flat !== llat) ring.push([flon, flat]);
+  }
+  return [ring];
+}
+
+function unionOutlines(polygons) {
+  if (!polygons.length) return [];
+  try {
+    const result = polygonClipping.union(...polygons);
+    // result is MultiPolygon -> [[[ring]]]
+    const outlines = [];
+    for (const poly of result) {
+      for (const ring of poly) {
+        outlines.push(ring);
+      }
+    }
+    return outlines;
+  } catch (err) {
+    console.warn("union error", err);
+    return [];
+  }
+}
+
+function simplifyRoute(points, minMeters = 10) {
+  if (points.length <= 1) return points;
+  const simplified = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = simplified[simplified.length - 1];
+    const curr = points[i];
+    const d = haversine(prev.lat, prev.lon, curr.lat, curr.lon);
+    if (d >= minMeters) simplified.push(curr);
+  }
+  return simplified;
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 function lngLatToTile(lon, lat, zoom) {

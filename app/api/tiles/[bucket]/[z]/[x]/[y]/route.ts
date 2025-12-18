@@ -25,7 +25,7 @@ export async function GET(
     return NextResponse.json(JSON.parse(data));
   } catch (err: any) {
     if (err && err.code === "ENOENT") {
-      return NextResponse.json({ cells: [] }, { status: 404 });
+      return NextResponse.json({ cells: [], outlines: [], route: [] }, { status: 404 });
     }
     console.error("tile endpoint error", err);
     return NextResponse.json({ error: "Failed to load tile" }, { status: 500 });
