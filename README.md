@@ -3,7 +3,7 @@
 Turn your Google Maps Timeline history into an RPG-style fog-of-war map. Upload your Google Takeout `.tgz`, process it into tiles, and view explored areas on a greyscale map while unexplored areas stay fogged.
 
 ## Status
-- Planning/docs only. Implementation will follow the design in `docs/architecture.md`.
+- JSON ingest + tiled map overlay in progress. Place your Timeline JSON and run `npm run ingest` to see the map.
 
 ## Core idea
 - Ingest Google Timeline exports, filter noisy points, snap them to a small grid (~6–9 m), and aggregate visits.
@@ -30,13 +30,14 @@ Turn your Google Maps Timeline history into an RPG-style fog-of-war map. Upload 
 
 ## Drop your data
 - Place your Timeline JSON at `data/uploads/location-history.json` (single file ingest for now).
-- Run `npm run ingest` to aggregate into H3 cells.
+- Run `npm run ingest` to aggregate into H3 cells with a **total view and per-year buckets**, and to emit JSON tiles.
 - Generated data:
-  - Cells: `data/tiles/location-history/cells.json`
-  - Metadata: `data/meta/location-history.json`
-  - API: `GET /api/cells` (used by the map)
+  - Cells per bucket: `data/tiles/location-history/<bucket>/cells.json` (bucket = `total` or year like `2018`)
+  - Tiles per bucket: `data/tiles/location-history/<bucket>/tiles/{z}/{x}/{y}.json` (z 4–14)
+  - Metadata: `data/meta/location-history.json` (lists buckets, zooms, stats)
+  - APIs: `GET /api/meta`, `GET /api/tiles/:bucket/:z/:x/:y`
 
 ## Next steps
-- Flesh out ingestion to accept .tgz and streaming parses.
+- Switch ingestion to streaming, disk-backed aggregation, and optional `.tgz`.
 - Add fog styling polish (desaturated basemap, animations), opacity controls, and dataset selection.
 - Add retention/cleanup and upload endpoints once ready.

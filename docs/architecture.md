@@ -23,11 +23,12 @@ Fog-of-war map for Google Maps Timeline history. This document captures goals, c
 
 ## Data ingestion pipeline (current JSON-only MVP)
 1) **Input**: place `data/uploads/location-history.json` (single JSON array of visits).  
-2) **Parse**: read JSON, extract `visit.topCandidate.placeLocation` (`geo:lat,lon`), weight by `probability` (topCandidate, fallback to visit).  
-3) **Grid + aggregate**: map to H3 at res 13; sum weights per cell.  
-4) **Metadata**: bounds, counts, totals.  
-5) **Outputs**: `data/tiles/location-history/cells.json` and `data/meta/location-history.json`.  
-6) **API**: `GET /api/cells` serves the derived data to the map.
+2) **Parse**: read JSON, extract visit and activity coordinates (accept `geo:lat,lon`, raw `lat,lon`, arrays, and lat/lon objects), weight by `probability` (min weight = 1).  
+3) **Grid + aggregate**: map to H3 at res 13; sum weights per cell for **total** and **per-year buckets** (year derived from start/end time).  
+4) **Tiles**: generate JSON tiles per bucket at z 4–14: `data/tiles/location-history/<bucket>/tiles/{z}/{x}/{y}.json`.  
+5) **Metadata**: bounds, counts, totals per bucket; list available buckets (`total`, `YYYY`); tile zooms and counts.  
+6) **Outputs**: `data/tiles/location-history/<bucket>/cells.json`, tiles under `tiles/`, and `data/meta/location-history.json`.  
+7) **APIs**: `GET /api/meta`, `GET /api/tiles/:bucket/:z/:x/:y` for map consumption.
 
 Memory note: current approach loads the JSON once (22 MB scale). When adding .tgz support, switch to streaming parse + disk-backed aggregation.
 
@@ -48,10 +49,11 @@ Memory note: current approach loads the JSON once (22 MB scale). When adding .tg
 - **Generation pass**: iterate all cell counts from the KV store, assign them to z/x/y buckets, and flush to disk.
 - **Metadata endpoint**: `GET /api/meta/:datasetId` returns bounds, available zooms, and tile URL template.
 
-## API surface (proposed)
-- `GET /api/cells` — serves aggregated cells + metadata for the current dataset (`location-history`).
+## API surface (current + proposed)
+- `GET /api/meta` — serves metadata (buckets, zooms, stats) for the current dataset.
+- `GET /api/tiles/:bucket/:z/:x/:y` — JSON tile for visited cells (current dataset).
 - (later) `POST /api/upload` — accept `.tgz`, kick off ingestion, return `datasetId`.
-- (later) `GET /api/meta/:datasetId`, `GET /api/tiles/:datasetId/:z/:y` — for true tiling and multiple datasets.
+- (later) `GET /api/meta/:datasetId`, `GET /api/tiles/:datasetId/:bucket/:z/:y` — for multiple datasets.
 
 ## Client rendering (fog-of-war)
 - **Basemap**: desaturated/grey raster style to keep focus on reveal layer.
