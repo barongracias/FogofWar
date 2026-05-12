@@ -19,8 +19,8 @@ export async function GET(req: Request) {
     const raw = await fs.readFile(routePath, "utf8");
     const json = JSON.parse(raw);
     return NextResponse.json(json);
-  } catch (err: any) {
-    if (err && err.code === "ENOENT") {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
       return NextResponse.json({ coords: [] }, { status: 404 });
     }
     console.error("route endpoint error", err);

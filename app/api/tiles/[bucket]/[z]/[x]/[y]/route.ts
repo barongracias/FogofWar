@@ -23,9 +23,9 @@ export async function GET(
     );
     const data = await fs.readFile(tilePath, "utf8");
     return NextResponse.json(JSON.parse(data));
-  } catch (err: any) {
-    if (err && err.code === "ENOENT") {
-      return NextResponse.json({ cells: [], outlines: [], route: [] }, { status: 404 });
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return NextResponse.json({ cells: [], outlines: [] }, { status: 404 });
     }
     console.error("tile endpoint error", err);
     return NextResponse.json({ error: "Failed to load tile" }, { status: 500 });

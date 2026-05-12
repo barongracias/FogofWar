@@ -23,11 +23,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <div>
               <h1>Fog of Travel</h1>
               <p className="subtitle">
-                Google Maps Timeline → RPG-style fog-of-war map
+                Google Maps Timeline &rarr; fog-of-war map
               </p>
             </div>
             <div className="header-actions">
-              <span className="pill">MVP</span>
+              <span className="pill">Beta</span>
             </div>
           </header>
           <main>

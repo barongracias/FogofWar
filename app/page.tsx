@@ -46,12 +46,14 @@ const NEUTRAL_RAMP = ["#7df9ff", "#38bdf8", "#a855f7", "#f472b6"];
 const COOL_RAMP = ["#64f4ac", "#3bb3ff", "#6c8dff", "#9ed7ff"];
 const WARM_RAMP = ["#ffd166", "#ff9b7b", "#ff70a6", "#f43f5e"];
 
+type MapExpr = unknown[];
+
 type ColorRamp = {
   ramp: string[];
-  fillStops: any[];
-  glowStops: any[];
-  dotStops: any[];
-  heatmapColor: any[];
+  fillStops: MapExpr;
+  glowStops: MapExpr;
+  dotStops: MapExpr;
+  heatmapColor: MapExpr;
 };
 
 type Bounds = { minLat: number; maxLat: number; minLon: number; maxLon: number };
@@ -83,45 +85,33 @@ function blendRamp(cool: string[], warm: string[], t: number) {
 
 function buildColorRamp(recency: number | null): ColorRamp {
   const ramp = recency === null ? NEUTRAL_RAMP : blendRamp(COOL_RAMP, WARM_RAMP, clamp01(recency));
-  const fillStops: any[] = [
+  const fillStops: MapExpr = [
     "interpolate",
     ["linear"],
     ["get", "count"],
-    0,
-    ramp[0],
-    5,
-    ramp[1],
-    20,
-    ramp[2],
-    60,
-    ramp[3]
+    0, ramp[0],
+    5, ramp[1],
+    20, ramp[2],
+    60, ramp[3]
   ];
-  const glowStops: any[] = [
+  const glowStops: MapExpr = [
     "interpolate",
     ["linear"],
     ["get", "count"],
-    0,
-    mixColors(ramp[0], "#101424", 0.35),
-    5,
-    mixColors(ramp[1], "#101424", 0.2),
-    20,
-    mixColors(ramp[2], "#101424", 0.12),
-    60,
-    mixColors(ramp[3], "#101424", 0.08)
+    0, mixColors(ramp[0], "#101424", 0.35),
+    5, mixColors(ramp[1], "#101424", 0.2),
+    20, mixColors(ramp[2], "#101424", 0.12),
+    60, mixColors(ramp[3], "#101424", 0.08)
   ];
   const dotStops = fillStops;
-  const heatmapColor: any[] = [
+  const heatmapColor: MapExpr = [
     "interpolate",
     ["linear"],
     ["heatmap-density"],
-    0,
-    mixColors(ramp[0], "#0a0d14", 0.35),
-    0.4,
-    ramp[1],
-    0.7,
-    ramp[2],
-    1,
-    ramp[3]
+    0, mixColors(ramp[0], "#0a0d14", 0.35),
+    0.4, ramp[1],
+    0.7, ramp[2],
+    1, ramp[3]
   ];
 
   return { ramp, fillStops, glowStops, dotStops, heatmapColor };
@@ -333,9 +323,9 @@ function FogOfWarMap() {
           setTileZoom(json.tileZooms.min ?? 10);
         }
         setStatus("ready");
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err?.message || "Failed to load metadata");
+        setError(err instanceof Error ? err.message : "Failed to load metadata");
         setStatus("error");
       }
     }
@@ -416,7 +406,7 @@ function FogOfWarMap() {
         maxzoom: 12,
         paint: {
           "fill-color": "#22d3ee",
-          "fill-opacity": 0.35 * densityScale,
+          "fill-opacity": 0.35,
           "fill-outline-color": "#0ea5e9"
         }
       });
@@ -430,7 +420,7 @@ function FogOfWarMap() {
         minzoom: 6,
         paint: {
           "fill-color": "#38bdf8",
-          "fill-opacity": 0.78 * densityScale,
+          "fill-opacity": 0.78,
           "fill-outline-color": "#0ea5e9"
         },
         layout: { visibility: "visible" }
@@ -571,15 +561,11 @@ function FogOfWarMap() {
       }
     };
 
-    const handleMove = () => {
-      loadTiles();
-    };
-
-    map.on("moveend", handleMove);
+    map.on("moveend", loadTiles);
     loadTiles();
 
     return () => {
-      map.off("moveend", handleMove);
+      map.off("moveend", loadTiles);
     };
   }, [mapLoaded, meta, selectedBucket, styleVersion, routeCoords, showRoute]);
 
