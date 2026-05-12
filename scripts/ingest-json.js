@@ -242,9 +242,19 @@ function parseGeo(geo) {
 
   if (typeof geo === "object") {
     const lat =
-      geo.lat ?? geo.latitude ?? geo.latE7 / 1e7 ?? geo.latitudeE7 / 1e7 ?? null;
+      geo.lat ??
+      geo.latitude ??
+      (geo.latE7 != null ? geo.latE7 / 1e7 : null) ??
+      (geo.latitudeE7 != null ? geo.latitudeE7 / 1e7 : null) ??
+      null;
     const lon =
-      geo.lon ?? geo.lng ?? geo.longitude ?? geo.lonE7 / 1e7 ?? geo.lngE7 / 1e7 ?? geo.longitudeE7 / 1e7 ?? null;
+      geo.lon ??
+      geo.lng ??
+      geo.longitude ??
+      (geo.lonE7 != null ? geo.lonE7 / 1e7 : null) ??
+      (geo.lngE7 != null ? geo.lngE7 / 1e7 : null) ??
+      (geo.longitudeE7 != null ? geo.longitudeE7 / 1e7 : null) ??
+      null;
     if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
   }
 
