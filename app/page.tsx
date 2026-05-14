@@ -143,8 +143,8 @@ export default function Home() {
     <div className="page">
       <section className="panel">
         <div className="panel-header">
-          <h2>Fog-of-war map</h2>
-          <p className="note">Reveals visited areas; the rest stays under fog.</p>
+          <h2>The Fog-of-War Chart</h2>
+          <p className="note">Visited terrain comes into focus; the unexplored remains under cloud.</p>
         </div>
         <FogOfWarMap />
       </section>
@@ -767,7 +767,7 @@ function FogOfWarMap() {
       popupRef.current
         .setLngLat([lon, lat])
         .setHTML(
-          `<div class="popup-content"><div class="popup-title">${bucketLabel}</div><div class="popup-count">${count.toLocaleString()}</div><div class="popup-sub">${recencyLabel} • visits</div></div>`
+          `<div class="popup-content"><div class="popup-title">${bucketLabel} · ${lat.toFixed(2)}°, ${lon.toFixed(2)}°</div><div class="popup-count">${count.toLocaleString()}</div><div class="popup-sub">${recencyLabel} · visits recorded</div></div>`
         )
         .addTo(map);
     };
@@ -805,7 +805,7 @@ function FogOfWarMap() {
           </select>
         </div>
         <div className="control-row">
-          <span className="label">Base</span>
+          <span className="label">Chart</span>
           {BASE_STYLES.map((s) => (
             <button
               key={s.id}
@@ -817,7 +817,7 @@ function FogOfWarMap() {
           ))}
         </div>
         <div className="control-row">
-          <span className="label">View</span>
+          <span className="label">Era</span>
           <button
             className={`chip ${selectedBucket === "total" ? "chip--active" : ""}`}
             onClick={() => {
@@ -831,7 +831,7 @@ function FogOfWarMap() {
           </button>
         </div>
         <div className="control-row">
-          <span className="label">Bounds</span>
+          <span className="label">Extent</span>
           <button
             className={`chip chip--ghost ${
               meta?.buckets?.[selectedBucket]?.bounds ? "" : "chip--disabled"
@@ -872,7 +872,7 @@ function FogOfWarMap() {
                 }
               }}
             />
-            <span className="label">{selectedBucket === "total" ? "All" : selectedBucket}</span>
+            <span className="label mono">{selectedBucket === "total" ? "ALL" : selectedBucket}</span>
           </div>
         ) : (
           <p className="note">No year buckets available. Run ingest first.</p>
@@ -934,11 +934,11 @@ function FogOfWarMap() {
           <div className="stats">
             <div>
               <span className="stat-label">Cells</span>
-              <span className="stat-value">{bucketStats.cellCount ?? "–"}</span>
+              <span className="stat-value">{bucketStats.cellCount?.toLocaleString() ?? "–"}</span>
             </div>
             <div>
               <span className="stat-label">Points</span>
-              <span className="stat-value">{bucketStats.usedPoints ?? "–"}</span>
+              <span className="stat-value">{bucketStats.usedPoints?.toLocaleString() ?? "–"}</span>
             </div>
             <div>
               <span className="stat-label">Weight</span>
@@ -954,8 +954,7 @@ function FogOfWarMap() {
               <div>
                 <span className="stat-label">Extent</span>
                 <span className="stat-value">
-                  {bucketStats.bounds.minLat.toFixed(2)}, {bucketStats.bounds.minLon.toFixed(2)} →{" "}
-                  {bucketStats.bounds.maxLat.toFixed(2)}, {bucketStats.bounds.maxLon.toFixed(2)}
+                  {bucketStats.bounds.minLat.toFixed(2)}°, {bucketStats.bounds.minLon.toFixed(2)}° → {bucketStats.bounds.maxLat.toFixed(2)}°, {bucketStats.bounds.maxLon.toFixed(2)}°
                 </span>
               </div>
             )}
@@ -971,8 +970,8 @@ function FogOfWarMap() {
             )}
           </div>
         )}
-        {status === "loading" && <p className="note">Loading bucket…</p>}
-        {status === "ready" && !bucketStats && <p className="note">No data for this bucket.</p>}
+        {status === "loading" && <p className="note">Charting terrain…</p>}
+        {status === "ready" && !bucketStats && <p className="note">No data for this era.</p>}
         {error && <p className="error">{error}</p>}
       </div>
       <div className="legend">
@@ -980,12 +979,12 @@ function FogOfWarMap() {
           <div className="legend-label">Visit intensity</div>
           <div className="legend-bar" style={{ background: legendGradient }} />
           <div className="legend-scale">
-            <span>Low</span>
-            <span>High</span>
+            <span>Sparse</span>
+            <span>Dense</span>
           </div>
         </div>
         <div className="legend-recency">
-          <span className="legend-label">Recency</span>
+          <span className="legend-label">Era</span>
           <span className="legend-recency__value">{recencyLabel}</span>
         </div>
       </div>
