@@ -28,3 +28,10 @@ pnpm-debug.log*
 data/
 dist/
 build/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
